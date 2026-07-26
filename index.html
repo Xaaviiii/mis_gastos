@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2d8659">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mis Gastos">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <title>Mis Gastos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f0f0;
+            color: #1a1a1a;
+        }
+
+        .main-content {
+            padding: 20px;
+            padding-bottom: 120px;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.show {
+            display: block;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (min-width: 600px) {
+            .metrics {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .metric {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2d8659;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            background: #f5f5f5;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #999;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .item {
+            border-bottom: 1px solid #e0e0e0;
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 80px;
+            align-items: center;
+            min-height: 68px;
+        }
+
+        .item-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 12px 16px;
+            gap: 4px;
+        }
+
+        .item-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        .item-info h3 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 15px;
+            flex: 1;
+        }
+
+        .item-amount {
+            font-weight: 700;
+            font-size: 20px;
+            color: #2d8659;
+            white-space: nowrap;
+        }
+
+        .item-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        .item-delete {
+            background: #c85450;
+            color: white;
+            border: none;
+            width: 60px;
+            height: 100%;
+            min-height: 68px;
+            cursor: pointer;
+            font-size: 24px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .item-delete:hover {
+            background: #b84440;
+        }
+
+        .item-delete:active {
+            background: #a83430;
+        }
+
+        .item-content.swiped {
+            transform: translateX(-80px);
+        }
+
+        .item-content {
+            transition: transform 0.3s ease-out;
+        }
+
+        @media (max-width: 768px) {
+            .item-delete {
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 80px;
+                background: #c85450;
+            }
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .item-info h3 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .item-meta {
+            font-size: 12px;
+            color: #999;
+        }
+
+
+        .empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 70px;
+            height: 70px;
+            background: #2d8659;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 36px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(45, 134, 89, 0.3);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 70px;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            min-height: 70px;
+        }
+
+        .nav-btn.active {
+            color: #2d8659;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 95%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #1a1a1a;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 17px;
+            font-family: inherit;
+            min-height: 48px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2d8659;
+            box-shadow: 0 0 0 3px rgba(45, 134, 89, 0.1);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .form-checkbox input {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .form-checkbox label {
+            margin: 0;
+            font-size: 15px;
+            text-transform: none;
+            text-transform: none;
+            cursor: pointer;
+        }
+
+        .form-group input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            cursor: pointer;
+            margin: 8px 0;
+        }
+
+        .form-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #2d8659;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(45, 134, 89, 0.4);
+        }
+
+        .form-group input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #2d8659;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(45, 134, 89, 0.4);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 28px;
+        }
+
+        .btn {
+            padding: 14px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 48px;
+        }
+
+        .btn-primary {
+            background: #2d8659;
+            color: white;
+            grid-column: 1 / -1;
+            font-size: 17px;
+        }
+
+        .btn-primary:active {
+            background: #1f5a3d;
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #1a1a1a;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-secondary:active {
+            background: #ececec;
+        }
+    </style>
+</head>
+<body>
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-content">
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="view show">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <button onclick="mesAnterior()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">◀</button>
+                    <h1 id="month-label" style="flex: 1; text-align: center; margin: 0; font-size: 24px;">Julio 2024</h1>
+                    <button onclick="mesSiguiente()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">▶</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 20px; margin-bottom: 24px; align-items: center;">
+                <div style="flex: 1;">
+                    <svg id="donutChart" viewBox="0 0 120 120" style="width: 120px; height: 120px;"></svg>
+                </div>
+                <div style="flex: 1;">
+                    <div class="metric" style="margin-bottom: 12px;">
+                        <div class="metric-label">Presupuesto</div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <div class="metric-value" id="presupuesto-display">$0</div>
+                            <button onclick="editarPresupuesto()" style="background: none; border: none; font-size: 18px; cursor: pointer;">✏️</button>
+                        </div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Gastado</div>
+                        <div class="metric-value" id="month">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-label">Promedio gastado</div>
+                    <div class="metric-value" id="promedio">$0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Promedio mensual</div>
+                    <div class="metric-value" id="promedioMensual">$0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Transacciones</div>
+                    <div class="metric-value" id="transacciones">0</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">Gastos del mes</div>
+                <div id="dashboard-list"></div>
+            </div>
+        </div>
+
+        <!-- RESUMEN -->
+        <div id="resumen" class="view">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <button onclick="mesAnterior()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">◀</button>
+                    <h1 id="resumen-mes-label" style="flex: 1; text-align: center; margin: 0; font-size: 24px;">Julio 2024</h1>
+                    <button onclick="mesSiguiente()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">▶</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 20px; margin-bottom: 24px; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <svg id="categoryChart" viewBox="0 0 120 120" style="width: 120px; height: 120px;"></svg>
+                </div>
+                <div style="flex: 1;">
+                    <div class="section" style="margin: 0;">
+                        <div class="section-header">Totales</div>
+                        <div id="resumen-totales"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">Detalles por categoría</div>
+                <div id="resumen-detalle"></div>
+            </div>
+        </div>
+
+        <!-- GASTOS -->
+        <div id="gastos" class="view">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <button onclick="mesAnterior()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">◀</button>
+                    <h1 style="flex: 1; text-align: center; margin: 0; font-size: 20px;">Gastos por mes</h1>
+                    <button onclick="mesSiguiente()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;">▶</button>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <p id="gastos-mes-label" style="margin: 0; font-size: 14px; color: #999;">Julio 2026</p>
+                    <button onclick="exportarExcel()" style="background: none; border: none; font-size: 20px; cursor: pointer;">📥</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">Filtros y búsqueda</div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <input type="text" id="gastos-buscar" placeholder="🔍 Buscar por descripción..." 
+                           style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px;"
+                           onkeyup="renderGastos()">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <select id="gastos-filtro-categoria" onchange="renderGastos()" style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px;">
+                            <option value="">Todas las categorías</option>
+                            <option value="Comida">Comida</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Entretenimiento">Entretenimiento</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Salud">Salud</option>
+                            <option value="Compras">Compras</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                        
+                        <select id="gastos-filtro-tipo" onchange="renderGastos()" style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px;">
+                            <option value="">Todos los tipos</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Crédito">Crédito</option>
+                        </select>
+
+                        <select id="gastos-filtro-responsable" onchange="renderGastos()" style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px;">
+                            <option value="">Todos</option>
+                            <option value="Javi">Javi</option>
+                            <option value="Naty">Naty</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+
+                        <button onclick="limpiarFiltrosGastos()" style="padding: 10px; background: #2d8659; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Limpiar filtros</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header" id="gastos-header-resultados">Historial del mes</div>
+                <div id="gastos-list"></div>
+            </div>
+        </div>
+
+        <!-- CUOTAS -->
+        <div id="cuotas" class="view">
+            <div class="header">
+                <h1>Cuotas de este mes</h1>
+            </div>
+
+            <div class="section">
+                <div class="section-header">Próximas cuotas</div>
+                <div id="cuotas-list"></div>
+            </div>
+        </div>
+
+        <!-- DEUDAS -->
+        <div id="deudas" class="view">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1>Deudas Pendientes</h1>
+                    <button onclick="abrirModalDeuda()" style="background: none; border: none; font-size: 20px; cursor: pointer;">➕</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div id="deudas-list"></div>
+            </div>
+        </div>
+
+        <!-- TRANSFERENCIAS -->
+        <div id="transferencias" class="view">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1>Transferencias Recibidas</h1>
+                    <button onclick="abrirModalTransferencia()" style="background: none; border: none; font-size: 20px; cursor: pointer;">➕</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div id="transferencias-list"></div>
+            </div>
+        </div>
+
+        <!-- WISHLIST -->
+        <div id="wishlist" class="view">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1>Mi Wishlist</h1>
+                    <button onclick="abrirModalWishlist()" style="background: none; border: none; font-size: 20px; cursor: pointer;">➕</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div id="wishlist-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAB -->
+    <button id="fabBtn" class="fab" onclick="abrirModal()">+</button>
+
+    <!-- NAVEGACIÓN INFERIOR -->
+    <div class="nav">
+        <button class="nav-btn active" onclick="irA('dashboard')">📊</button>
+        <button class="nav-btn" onclick="irA('resumen')">📈</button>
+        <button class="nav-btn" onclick="irA('gastos')">📝</button>
+        <button class="nav-btn" onclick="irA('cuotas')">📅</button>
+        <button class="nav-btn" onclick="irA('deudas')">💳</button>
+        <button class="nav-btn" onclick="irA('transferencias')">💸</button>
+        <button class="nav-btn" onclick="irA('wishlist')">🐱</button>
+    </div>
+
+    <!-- MODAL DE PRESUPUESTO -->
+    <div id="modalPresupuesto" class="modal" onclick="if(event.target === this) cerrarPresupuesto()">
+        <div class="modal-content">
+            <div class="modal-header">Editar Presupuesto</div>
+
+            <div class="form-group">
+                <label id="presupuesto-mes-label">Julio 2026</label>
+                <input type="number" id="presupuesto-input" placeholder="0" inputmode="decimal">
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="cerrarPresupuesto()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarPresupuesto()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL WISHLIST -->
+    <!-- MODAL TRANSFERENCIAS -->
+    <div id="modalTransferencia" class="modal" onclick="if(event.target === this) cerrarModalTransferencia()">
+        <div class="modal-content">
+            <div class="modal-header">Registrar Transferencia</div>
+
+            <div class="form-group">
+                <label>¿Quién te transfirió?</label>
+                <input type="text" id="transferencia-de" placeholder="Ej: Polola, Hermano...">
+            </div>
+
+            <div class="form-group">
+                <label>Monto (CLP)</label>
+                <input type="number" id="transferencia-monto" placeholder="0" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>Concepto</label>
+                <input type="text" id="transferencia-concepto" placeholder="Ej: Pago de cuota, regalo...">
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="cerrarModalTransferencia()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarTransferencia()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DEUDAS -->
+    <div id="modalDeuda" class="modal" onclick="if(event.target === this) cerrarModalDeuda()">
+        <div class="modal-content">
+            <div class="modal-header">Registrar Deuda</div>
+
+            <div class="form-group">
+                <label>¿Qué compraste?</label>
+                <input type="text" id="deuda-desc" placeholder="Ej: Monitor, PlayStation...">
+            </div>
+
+            <div class="form-group">
+                <label>Monto total (CLP)</label>
+                <input type="number" id="deuda-monto" placeholder="0" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>¿Cuántas cuotas?</label>
+                <input type="number" id="deuda-cuotas" placeholder="3" min="1" value="3">
+            </div>
+
+            <div class="form-group">
+                <label>¿Quién te debe?</label>
+                <input type="text" id="deuda-deudor" placeholder="Ej: Polola, Hermano...">
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="cerrarModalDeuda()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarDeuda()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL WISHLIST -->
+    <div id="modalWishlist" class="modal" onclick="if(event.target === this) cerrarModalWishlist()">
+        <div class="modal-content">
+            <div class="modal-header">Agregar a Wishlist</div>
+
+            <div class="form-group">
+                <label>Nombre del producto</label>
+                <input type="text" id="wishlist-nombre" placeholder="Ej: Laptop, Celular...">
+            </div>
+
+            <div class="form-group">
+                <label>Link del producto</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="url" id="wishlist-link" placeholder="https://..." style="flex: 1;">
+                    <button onclick="cargarPrecioDelLink()" style="background: #2d8659; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 14px; font-weight: 600; min-width: 50px;">🔗</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Precio (CLP)</label>
+                <input type="number" id="wishlist-precio" placeholder="0" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>Prioridad</label>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="seleccionarPrioridad('Urgente')" id="btn-urgente" style="flex: 1; padding: 12px; border: 2px solid #c85450; background: white; border-radius: 6px; color: #c85450; font-weight: 600; cursor: pointer;">🔴 Urgente</button>
+                    <button onclick="seleccionarPrioridad('Pronto')" id="btn-pronto" style="flex: 1; padding: 12px; border: 2px solid #f39c12; background: white; border-radius: 6px; color: #f39c12; font-weight: 600; cursor: pointer;">🟡 Pronto</button>
+                    <button onclick="seleccionarPrioridad('Después')" id="btn-despues" style="flex: 1; padding: 12px; border: 2px solid #27ae60; background: white; border-radius: 6px; color: #27ae60; font-weight: 600; cursor: pointer;">🟢 Después</button>
+                </div>
+                <input type="hidden" id="wishlist-prioridad" value="Urgente">
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="cerrarModalWishlist()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarWishlist()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL -->
+    <div id="modal" class="modal" onclick="if(event.target === this) cerrarModal()">
+        <div class="modal-content">
+            <div class="modal-header">Nuevo gasto</div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <input type="text" id="desc" placeholder="Ej: Almuerzo">
+            </div>
+
+            <div class="form-group">
+                <label>Monto</label>
+                <input type="number" id="amount" placeholder="0" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>Categoría</label>
+                <select id="category">
+                    <option value="Comida">🍔 Comida</option>
+                    <option value="Transporte">🚗 Transporte</option>
+                    <option value="Entretenimiento">🎬 Entretenimiento</option>
+                    <option value="Servicios">🔧 Servicios</option>
+                    <option value="Salud">🏥 Salud</option>
+                    <option value="Compras">🛍️ Compras</option>
+                    <option value="Otros">📦 Otros</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" id="date">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de pago</label>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="tipoPago-transferencia" value="Transferencia">
+                    <label for="tipoPago-transferencia" style="margin: 0;">🏦 Transferencia</label>
+                </div>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="tipoPago-credito" value="Crédito">
+                    <label for="tipoPago-credito" style="margin: 0;">💳 Crédito</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Responsable</label>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="responsable-javi" value="Javi">
+                    <label for="responsable-javi" style="margin: 0;">👤 Javi</label>
+                </div>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="responsable-naty" value="Naty">
+                    <label for="responsable-naty" style="margin: 0;">👤 Naty</label>
+                </div>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="responsable-otros" value="Otros">
+                    <label for="responsable-otros" style="margin: 0;">👤 Otros</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-checkbox">
+                    <input type="checkbox" id="isCuota" onchange="toggleCuotas()">
+                    <label for="isCuota" style="margin: 0;">En cuotas</label>
+                </div>
+            </div>
+
+            <div class="form-group hidden" id="cuotasGroup">
+                <label>Número de cuotas</label>
+                <input type="number" id="numCuotas" value="3" min="2" max="24">
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN -->
+    <div id="confirm-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 300px;">
+            <div class="modal-header">Confirmar acción</div>
+            <p id="confirm-message" style="margin: 16px 0; color: #333; text-align: center; line-height: 1.5;"></p>
+            <div class="button-group">
+                <button class="btn btn-secondary" id="cancel-btn">Cancelar</button>
+                <button class="btn btn-primary" id="confirm-btn" style="background: #c85450; border-color: #c85450;">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gastos = [];
+        let presupuestos = {}; // { "2026-07": 500000, ... }
+        let wishlist = []; // Array de productos deseados
+        let mesSeleccionado = new Date(); // Comienza en el mes actual
+
+        // EXPORTAR A EXCEL
+        function exportarExcel() {
+            const mesGastos = obtenerGastosMes();
+            
+            if (mesGastos.length === 0) {
+                alert('No hay gastos para exportar este mes');
+                return;
+            }
+
+            // Preparar datos
+            const datos = mesGastos.map(g => ({
+                'Descripción': g.desc,
+                'Monto': g.amount,
+                'Categoría': g.category,
+                'Fecha': new Date(g.date).toLocaleDateString('es-CL'),
+                'Tipo de Pago': g.tipoPago || '',
+                'Responsable': g.responsable || '',
+                'Es Cuota': g.cuota ? `Cuota ${g.cuotaNum}/${g.cuotaTotal}` : 'No'
+            }));
+
+            // Crear workbook
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+
+            // Ajustar ancho de columnas
+            ws['!cols'] = [
+                { wch: 20 },
+                { wch: 12 },
+                { wch: 15 },
+                { wch: 12 },
+                { wch: 15 },
+                { wch: 12 },
+                { wch: 20 }
+            ];
+
+            // Descargar con nombre del mes
+            const mesNombre = mesSeleccionado.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            XLSX.writeFile(wb, `Gastos_${mesNombre}.xlsx`);
+
+            alert('✅ Archivo descargado');
+        }
+        function init() {
+            cargar();
+            setDate();
+            actualizar();
+            
+            // Presionar Enter en los campos para guardar
+            ['desc', 'amount'].forEach(id => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') guardar();
+                });
+            });
+        }
+
+        // NAVEGACIÓN DE MESES
+        function mesAnterior() {
+            mesSeleccionado.setMonth(mesSeleccionado.getMonth() - 1);
+            actualizar();
+        }
+
+        function mesSiguiente() {
+            mesSeleccionado.setMonth(mesSeleccionado.getMonth() + 1);
+            actualizar();
+        }
+
+        // PRESUPUESTO
+        function obtenerPresupuesto() {
+            const key = mesSeleccionado.getFullYear() + '-' + String(mesSeleccionado.getMonth() + 1).padStart(2, '0');
+            return presupuestos[key] || 0;
+        }
+
+        function editarPresupuesto() {
+            const mes = mesSeleccionado.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            document.getElementById('presupuesto-mes-label').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+            document.getElementById('presupuesto-input').value = obtenerPresupuesto();
+            document.getElementById('modalPresupuesto').classList.add('show');
+        }
+
+        function cerrarPresupuesto() {
+            document.getElementById('modalPresupuesto').classList.remove('show');
+        }
+
+        function guardarPresupuesto() {
+            const monto = parseFloat(document.getElementById('presupuesto-input').value) || 0;
+            const key = mesSeleccionado.getFullYear() + '-' + String(mesSeleccionado.getMonth() + 1).padStart(2, '0');
+            presupuestos[key] = monto;
+            guardarLocal();
+            actualizar();
+            cerrarPresupuesto();
+        }
+
+        // GRÁFICO DE ANILLOS
+        function dibujarDonut() {
+            const svg = document.getElementById('donutChart');
+            svg.innerHTML = '';
+
+            const presupuesto = obtenerPresupuesto();
+            const mesGastos = obtenerGastosMes();
+            const gastado = mesGastos.reduce((s, g) => s + g.amount, 0);
+
+            if (presupuesto === 0) {
+                // Sin presupuesto, mostrar solo icono
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', '60');
+                text.setAttribute('y', '70');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '40');
+                text.textContent = '💰';
+                svg.appendChild(text);
+                return;
+            }
+
+            const porcentaje = Math.min((gastado / presupuesto) * 100, 100);
+            const circumference = 2 * Math.PI * 40; // radio = 40
+            const strokeDashoffset = circumference - (porcentaje / 100) * circumference;
+
+            // Círculo de fondo
+            const circleBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circleBg.setAttribute('cx', '60');
+            circleBg.setAttribute('cy', '60');
+            circleBg.setAttribute('r', '40');
+            circleBg.setAttribute('fill', 'none');
+            circleBg.setAttribute('stroke', '#e0e0e0');
+            circleBg.setAttribute('stroke-width', '8');
+            svg.appendChild(circleBg);
+
+            // Círculo de progreso
+            const circleProgress = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circleProgress.setAttribute('cx', '60');
+            circleProgress.setAttribute('cy', '60');
+            circleProgress.setAttribute('r', '40');
+            circleProgress.setAttribute('fill', 'none');
+            circleProgress.setAttribute('stroke', porcentaje > 100 ? '#c85450' : '#2d8659');
+            circleProgress.setAttribute('stroke-width', '8');
+            circleProgress.setAttribute('stroke-dasharray', circumference);
+            circleProgress.setAttribute('stroke-dashoffset', strokeDashoffset);
+            circleProgress.setAttribute('stroke-linecap', 'round');
+            circleProgress.setAttribute('transform', 'rotate(-90 60 60)');
+            circleProgress.setAttribute('style', 'transition: stroke-dashoffset 0.3s ease;');
+            svg.appendChild(circleProgress);
+
+            // Monto en el centro (grande y visible)
+            const montoFormato = Math.round(gastado);
+            const montoTexto = montoFormato > 999999 
+                ? '$' + (montoFormato / 1000000).toFixed(1) + 'M'
+                : '$' + montoFormato.toLocaleString('es-CL');
+            
+            // Línea 1: Monto
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', '60');
+            text.setAttribute('y', '62');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle');
+            text.setAttribute('font-size', '18');
+            text.setAttribute('font-weight', 'bold');
+            text.setAttribute('fill', '#2d8659');
+            text.textContent = montoTexto;
+            svg.appendChild(text);
+            
+            console.log('Donut: mostrando monto =', montoTexto);
+        }
+        function obtenerGastosMes() {
+            return gastos.filter(g => {
+                const d = new Date(g.date);
+                return d.getMonth() === mesSeleccionado.getMonth() && 
+                       d.getFullYear() === mesSeleccionado.getFullYear();
+            });
+        }
+        function irA(vista) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('show'));
+            document.getElementById(vista).classList.add('show');
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Mostrar FAB solo en dashboard
+            const fabBtn = document.getElementById('fabBtn');
+            if (vista === 'dashboard') {
+                fabBtn.style.display = 'flex';
+            } else {
+                fabBtn.style.display = 'none';
+            }
+
+            actualizar();
+        }
+
+        // WISHLIST - MODAL
+        function abrirModalWishlist() {
+            document.getElementById('modalWishlist').classList.add('show');
+        }
+
+        function cerrarModalWishlist() {
+            document.getElementById('modalWishlist').classList.remove('show');
+            limpiarWishlist();
+        }
+
+        function limpiarWishlist() {
+            document.getElementById('wishlist-nombre').value = '';
+            document.getElementById('wishlist-precio').value = '';
+            document.getElementById('wishlist-link').value = '';
+            document.getElementById('wishlist-prioridad').value = 'Urgente';
+            seleccionarPrioridad('Urgente');
+        }
+
+        // CARGAR PRECIO DEL LINK AUTOMÁTICAMENTE
+        function cargarPrecioDelLink() {
+            const link = document.getElementById('wishlist-link').value;
+            
+            if (!link) {
+                alert('Ingresa un link primero');
+                return;
+            }
+
+            // Simplemente abrir el link en una nueva ventana
+            window.open(link, '_blank');
+            alert('📱 Abre el link, busca el precio y cópialo aquí');
+        }
+
+        // GUARDAR PRODUCTO A WISHLIST
+        function seleccionarPrioridad(prioridad) {
+            document.getElementById('wishlist-prioridad').value = prioridad;
+            document.getElementById('btn-urgente').style.background = prioridad === 'Urgente' ? '#c85450' : 'white';
+            document.getElementById('btn-urgente').style.color = prioridad === 'Urgente' ? 'white' : '#c85450';
+            document.getElementById('btn-pronto').style.background = prioridad === 'Pronto' ? '#f39c12' : 'white';
+            document.getElementById('btn-pronto').style.color = prioridad === 'Pronto' ? 'white' : '#f39c12';
+            document.getElementById('btn-despues').style.background = prioridad === 'Después' ? '#27ae60' : 'white';
+            document.getElementById('btn-despues').style.color = prioridad === 'Después' ? 'white' : '#27ae60';
+        }
+
+        function guardarWishlist() {
+            const nombre = document.getElementById('wishlist-nombre').value;
+            const precio = parseFloat(document.getElementById('wishlist-precio').value) || 0;
+            const link = document.getElementById('wishlist-link').value;
+            const prioridad = document.getElementById('wishlist-prioridad').value;
+
+            if (!nombre || precio <= 0) {
+                alert('Ingresa nombre y precio del producto');
+                return;
+            }
+
+            wishlist.push({
+                id: Date.now(),
+                nombre,
+                precio,
+                link,
+                prioridad,
+                comprado: false,
+                fechaAgregada: new Date().toISOString().split('T')[0],
+                fechaComprado: null
+            });
+
+            guardarLocal();
+            renderWishlist();
+            cerrarModalWishlist();
+        }
+
+        // IA: CALCULAR CUOTAS INTELIGENTES
+        function calcularCuotasInteligentes(precioProducto) {
+            const presupuesto = obtenerPresupuesto();
+            const mesGastos = obtenerGastosMes();
+            const gastado = mesGastos.reduce((s, g) => s + g.amount, 0);
+            const disponible = Math.max(0, presupuesto - gastado);
+
+            // Si no hay presupuesto definido, sugerir 3 cuotas por defecto
+            if (presupuesto === 0) {
+                return {
+                    cuotasRecomendadas: 3,
+                    montoPorCuota: Math.round(precioProducto / 3),
+                    consejo: '💡 Sugerencia: 3 cuotas (sin presupuesto definido)',
+                    urgencia: 'normal'
+                };
+            }
+
+            // Si cabe en este mes
+            if (precioProducto <= disponible) {
+                return {
+                    cuotasRecomendadas: 1,
+                    montoPorCuota: precioProducto,
+                    consejo: '✅ ¡Cabe en tu presupuesto este mes!',
+                    urgencia: 'comprar-ya'
+                };
+            }
+
+            // Calcular cuotas necesarias
+            const cuotasNecesarias = Math.ceil(precioProducto / disponible);
+            const montoPorCuota = Math.round(precioProducto / cuotasNecesarias);
+
+            if (cuotasNecesarias <= 3) {
+                return {
+                    cuotasRecomendadas: cuotasNecesarias,
+                    montoPorCuota,
+                    consejo: `💡 Recomendación: ${cuotasNecesarias} cuotas de $${montoPorCuota.toLocaleString('es-CL')}`,
+                    urgencia: 'pronto'
+                };
+            } else if (cuotasNecesarias <= 6) {
+                return {
+                    cuotasRecomendadas: cuotasNecesarias,
+                    montoPorCuota,
+                    consejo: `⏳ Paciencia: ${cuotasNecesarias} cuotas de $${montoPorCuota.toLocaleString('es-CL')}`,
+                    urgencia: 'esperar'
+                };
+            } else {
+                return {
+                    cuotasRecomendadas: cuotasNecesarias,
+                    montoPorCuota,
+                    consejo: `🤔 Es caro. Necesitas ${cuotasNecesarias} cuotas de $${montoPorCuota.toLocaleString('es-CL')}`,
+                    urgencia: 'muy-caro'
+                };
+            }
+        }
+
+        // RENDERIZAR WISHLIST
+        function renderWishlist() {
+            // Separar activos y comprados
+            const activos = wishlist.filter(p => !p.comprado);
+            const comprados = wishlist.filter(p => p.comprado);
+
+            // CALCULAR MÉTRICAS
+            const totalWishlist = activos.reduce((s, p) => s + p.precio, 0);
+            const presupuesto = obtenerPresupuesto();
+            const mesGastos = obtenerGastosMes();
+            const gastado = mesGastos.reduce((s, g) => s + g.amount, 0);
+            const disponible = Math.max(0, presupuesto - gastado);
+            const mesesNecesarios = presupuesto > 0 ? Math.ceil(totalWishlist / presupuesto) : 0;
+
+            // CONSTRUIR HTML
+            let html = '';
+
+            // RESUMEN
+            html += `
+                <div class="section" style="background: #f9f9f9; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #2d8659;">📊 RESUMEN</div>
+                    <div style="font-size: 13px; line-height: 1.6; color: #666;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Total wishlist:</span>
+                            <span style="font-weight: 600;">$${Math.round(totalWishlist).toLocaleString('es-CL')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>Disponible este mes:</span>
+                            <span style="font-weight: 600; color: ${disponible > 0 ? '#27ae60' : '#c85450'};">$${Math.round(disponible).toLocaleString('es-CL')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Tiempo para completar:</span>
+                            <span style="font-weight: 600;">${mesesNecesarios} meses</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // ACTIVOS POR PRIORIDAD
+            if (activos.length === 0) {
+                html += '<div class="empty">Sin productos en tu wishlist</div>';
+            } else {
+                const porPrioridad = { 'Urgente': [], 'Pronto': [], 'Después': [] };
+                activos.forEach(p => {
+                    if (porPrioridad[p.prioridad]) {
+                        porPrioridad[p.prioridad].push(p);
+                    }
+                });
+
+                // URGENTE
+                if (porPrioridad['Urgente'].length > 0) {
+                    const totalUrgente = porPrioridad['Urgente'].reduce((s, p) => s + p.precio, 0);
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-weight: 600; color: #c85450; margin-bottom: 8px; font-size: 14px;">🔴 URGENTE (${porPrioridad['Urgente'].length}) - $${Math.round(totalUrgente).toLocaleString('es-CL')}</div>
+                            ${porPrioridad['Urgente'].map(p => generarItemWishlist(p)).join('')}
+                        </div>
+                    `;
+                }
+
+                // PRONTO
+                if (porPrioridad['Pronto'].length > 0) {
+                    const totalProonto = porPrioridad['Pronto'].reduce((s, p) => s + p.precio, 0);
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-weight: 600; color: #f39c12; margin-bottom: 8px; font-size: 14px;">🟡 PRONTO (${porPrioridad['Pronto'].length}) - $${Math.round(totalProonto).toLocaleString('es-CL')}</div>
+                            ${porPrioridad['Pronto'].map(p => generarItemWishlist(p)).join('')}
+                        </div>
+                    `;
+                }
+
+                // DESPUÉS
+                if (porPrioridad['Después'].length > 0) {
+                    const totalDespues = porPrioridad['Después'].reduce((s, p) => s + p.precio, 0);
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-weight: 600; color: #27ae60; margin-bottom: 8px; font-size: 14px;">🟢 DESPUÉS (${porPrioridad['Después'].length}) - $${Math.round(totalDespues).toLocaleString('es-CL')}</div>
+                            ${porPrioridad['Después'].map(p => generarItemWishlist(p)).join('')}
+                        </div>
+                    `;
+                }
+            }
+
+            // HISTORIAL DE COMPRADAS
+            if (comprados.length > 0) {
+                html += `
+                    <div style="margin-top: 24px; border-top: 2px solid #e0e0e0; padding-top: 16px;">
+                        <div style="font-weight: 600; color: #27ae60; margin-bottom: 8px; font-size: 14px;">✅ COMPRADAS (${comprados.length})</div>
+                        ${comprados.map(p => `
+                            <div style="padding: 8px 0; font-size: 13px; color: #999; text-decoration: line-through;">
+                                ${p.nombre} - $${Math.round(p.precio).toLocaleString('es-CL')} ${p.fechaComprado ? `<span style="font-size: 11px;">(${p.fechaComprado})</span>` : ''}
+                                <button onclick="restaurarWishlist(${p.id})" style="background: none; border: none; color: #2d8659; cursor: pointer; font-size: 12px; text-decoration: underline; margin-left: 8px;">Restaurar</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            document.getElementById('wishlist-list').innerHTML = html;
+        }
+
+        function generarItemWishlist(p) {
+            const recomendacion = calcularCuotasInteligentes(p.precio);
+            const btnAbrir = p.link ? `<button onclick="window.open('${p.link}', '_blank')" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #2d8659;">🔗</button>` : '';
+            
+            return `
+                <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">${p.nombre}</div>
+                            <div style="font-size: 13px; color: #666; margin-bottom: 2px;">💵 $${Math.round(p.precio).toLocaleString('es-CL')}</div>
+                            <div style="font-size: 13px; color: #2d8659; font-weight: 600;">${recomendacion.consejo}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            ${btnAbrir}
+                            <button onclick="marcarComprado(${p.id})" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #27ae60;">✓</button>
+                            <button onclick="eliminarWishlist(${p.id})" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #c85450;">✕</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // MARCAR COMO COMPRADO
+        function marcarComprado(id) {
+            const producto = wishlist.find(p => p.id === id);
+            if (producto) {
+                producto.comprado = true;
+                producto.fechaComprado = new Date().toISOString().split('T')[0];
+                guardarLocal();
+                renderWishlist();
+            }
+        }
+
+        // RESTAURAR PRODUCTO
+        function restaurarWishlist(id) {
+            const producto = wishlist.find(p => p.id === id);
+            if (producto) {
+                producto.comprado = false;
+                producto.fechaComprado = null;
+                guardarLocal();
+                renderWishlist();
+            }
+        }
+
+        // ELIMINAR DE WISHLIST
+        function eliminarWishlist(id) {
+            wishlist = wishlist.filter(p => p.id !== id);
+            guardarLocal();
+            renderWishlist();
+        }
+
+        // MODAL
+        function abrirModal() {
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        function toggleCuotas() {
+            const check = document.getElementById('isCuota').checked;
+            document.getElementById('cuotasGroup').classList.toggle('hidden', !check);
+        }
+
+        function setDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+        }
+
+        // GUARDAR
+        function guardar() {
+            const desc = document.getElementById('desc').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const category = document.getElementById('category').value;
+            const date = document.getElementById('date').value;
+            const isCuota = document.getElementById('isCuota').checked;
+            const numCuotas = parseInt(document.getElementById('numCuotas').value) || 1;
+            
+            // Obtener tipos de pago seleccionados
+            const tiposSeleccionados = [];
+            if (document.getElementById('tipoPago-transferencia').checked) tiposSeleccionados.push('Transferencia');
+            if (document.getElementById('tipoPago-credito').checked) tiposSeleccionados.push('Crédito');
+
+            // Obtener responsables seleccionados
+            const responsablesSeleccionados = [];
+            if (document.getElementById('responsable-javi').checked) responsablesSeleccionados.push('Javi');
+            if (document.getElementById('responsable-naty').checked) responsablesSeleccionados.push('Naty');
+            if (document.getElementById('responsable-otros').checked) responsablesSeleccionados.push('Otros');
+
+            if (!desc || !amount || amount <= 0) {
+                alert('Completa los campos');
+                return;
+            }
+
+            if (tiposSeleccionados.length === 0) {
+                alert('Selecciona al menos un tipo de pago');
+                return;
+            }
+
+            if (responsablesSeleccionados.length === 0) {
+                alert('Selecciona al menos un responsable');
+                return;
+            }
+
+            // Calcular divisiones
+            const totalDivisiones = tiposSeleccionados.length * responsablesSeleccionados.length;
+            const montoPorDivision = amount / totalDivisiones;
+
+            // Crear gastos para cada combinación de tipo de pago y responsable
+            tiposSeleccionados.forEach(tipoPago => {
+                responsablesSeleccionados.forEach(responsable => {
+                    if (isCuota) {
+                        const monto = montoPorDivision / numCuotas;
+                        const startDate = new Date(date);
+                        for (let i = 0; i < numCuotas; i++) {
+                            const d = new Date(startDate);
+                            d.setMonth(d.getMonth() + i);
+                            gastos.push({
+                                id: Date.now() + Math.random(),
+                                desc,
+                                amount: monto,
+                                category,
+                                date: d.toISOString().split('T')[0],
+                                tipoPago,
+                                responsable,
+                                cuota: true,
+                                cuotaNum: i + 1,
+                                cuotaTotal: numCuotas
+                            });
+                        }
+                    } else {
+                        gastos.push({
+                            id: Date.now() + Math.random(),
+                            desc,
+                            amount: montoPorDivision,
+                            category,
+                            date,
+                            tipoPago,
+                            responsable,
+                            cuota: false
+                        });
+                    }
+                });
+            });
+
+            guardarLocal();
+            actualizar();
+            cerrarModal();
+            limpiar();
+        }
+
+        function limpiar() {
+            document.getElementById('desc').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('isCuota').checked = false;
+            document.getElementById('cuotasGroup').classList.add('hidden');
+            document.getElementById('numCuotas').value = 3;
+            document.getElementById('tipoPago-transferencia').checked = false;
+            document.getElementById('tipoPago-credito').checked = false;
+            document.getElementById('responsable-javi').checked = false;
+            document.getElementById('responsable-naty').checked = false;
+            document.getElementById('responsable-otros').checked = false;
+            setDate();
+        }
+
+        // GUARDAR LOCAL
+        function guardarLocal() {
+            localStorage.setItem('gastos', JSON.stringify(gastos));
+            localStorage.setItem('presupuestos', JSON.stringify(presupuestos));
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        }
+
+        function cargar() {
+            const dataGastos = localStorage.getItem('gastos');
+            if (dataGastos) gastos = JSON.parse(dataGastos);
+            
+            const dataPresupuestos = localStorage.getItem('presupuestos');
+            if (dataPresupuestos) presupuestos = JSON.parse(dataPresupuestos);
+
+            const dataWishlist = localStorage.getItem('wishlist');
+            if (dataWishlist) wishlist = JSON.parse(dataWishlist);
+        }
+
+        // ACTUALIZAR
+        function actualizar() {
+            const mes = mesSeleccionado.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            document.getElementById('month-label').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+
+            // PRESUPUESTO
+            const presupuesto = obtenerPresupuesto();
+            document.getElementById('presupuesto-display').textContent = '$' + Math.round(presupuesto).toLocaleString('es-CL');
+
+            // GASTOS DEL MES SELECCIONADO
+            const mesGastos = obtenerGastosMes();
+            const mesTotal = mesGastos.reduce((s, g) => s + g.amount, 0);
+            document.getElementById('month').textContent = '$' + Math.round(mesTotal).toLocaleString('es-CL');
+
+            // PROMEDIO DIARIO
+            const diasUnicos = new Set(mesGastos.map(g => g.date)).size || 1;
+            const promedio = mesTotal / diasUnicos;
+            document.getElementById('promedio').textContent = '$' + Math.round(promedio).toLocaleString('es-CL');
+
+            // NÚMERO DE TRANSACCIONES
+            document.getElementById('transacciones').textContent = mesGastos.length;
+
+            // GRÁFICO
+            dibujarDonut();
+
+            // LISTAS
+            renderDashboard();
+            renderResumen();
+            renderGastos();
+            renderCuotas();
+            renderWishlist();
+            renderDeudas();
+            renderTransferencias();
+        }
+
+        // OBTENER GASTOS DE UN MES ESPECÍFICO
+        function obtenerGastosDelMes(fecha) {
+            return gastos.filter(g => g.date.startsWith(fecha.toISOString().substring(0, 7)));
+        }
+
+        // CALCULAR TOTAL DE UN MES
+        function calcularTotalMes(fecha) {
+            return obtenerGastosDelMes(fecha).reduce((s, g) => s + g.amount, 0);
+        }
+
+        // OBTENER MES ANTERIOR
+        function getMesAnterior() {
+            const fecha = new Date(mesSeleccionado);
+            fecha.setMonth(fecha.getMonth() - 1);
+            return fecha;
+        }
+
+        // CALCULAR DIFERENCIA CON MES ANTERIOR
+        function calcularDiferenciaConMesAnterior() {
+            const mesActualTotal = obtenerGastosMes().reduce((s, g) => s + g.amount, 0);
+            const mesAnteriorFecha = getMesAnterior();
+            const mesAnteriorTotal = calcularTotalMes(mesAnteriorFecha);
+
+            if (mesAnteriorTotal === 0) return { diferencia: 0, porcentaje: 0, tipo: 'nuevo' };
+
+            const diferencia = mesActualTotal - mesAnteriorTotal;
+            const porcentaje = ((diferencia / mesAnteriorTotal) * 100).toFixed(1);
+
+            return {
+                diferencia: Math.abs(diferencia),
+                porcentaje: Math.abs(porcentaje),
+                tipo: diferencia > 0 ? 'aumento' : diferencia < 0 ? 'disminucion' : 'igual',
+                mesAnterior: mesAnteriorTotal,
+                mesActual: mesActualTotal
+            };
+        }
+
+        function renderDashboard() {
+            const mesGastos = obtenerGastosMes();
+            console.log('renderDashboard: mesGastos =', mesGastos);
+            mesGastos.forEach((g, idx) => {
+                console.log(`Gasto ${idx}: id=${g.id}, desc=${g.desc}, type(id)=${typeof g.id}`);
+            });
+            
+            const presupuesto = obtenerPresupuesto();
+            const totalGastado = mesGastos.reduce((s, g) => s + g.amount, 0);
+            const porcentajeUsado = presupuesto > 0 ? (totalGastado / presupuesto) * 100 : 0;
+            const disponible = Math.max(0, presupuesto - totalGastado);
+            
+            // ✅ ACTUALIZAR LOS NÚMEROS EN EL DOM
+            document.getElementById('month').innerHTML = `$${Math.round(totalGastado).toLocaleString('es-CL')}`;
+            document.getElementById('presupuesto-display').innerHTML = `$${Math.round(presupuesto).toLocaleString('es-CL')}`;
+            
+            console.log('Dashboard: totalGastado =', totalGastado, 'presupuesto =', presupuesto);
+            
+            // Promedio diario (días CON gasto)
+            const diasConGasto = new Set(mesGastos.map(g => new Date(g.date).getDate())).size;
+            const promedioGastado = diasConGasto > 0 ? totalGastado / diasConGasto : 0;
+            document.getElementById('promedio').innerHTML = `$${Math.round(promedioGastado).toLocaleString('es-CL')}`;
+            
+            // Promedio mensual (todos los días del mes)
+            const diasDelMes = new Date(mesSeleccionado.getFullYear(), mesSeleccionado.getMonth() + 1, 0).getDate();
+            const promedioMensual = totalGastado > 0 ? totalGastado / diasDelMes : 0;
+            document.getElementById('promedioMensual').innerHTML = `$${Math.round(promedioMensual).toLocaleString('es-CL')}`;
+            
+            // Número de transacciones
+            document.getElementById('transacciones').innerHTML = mesGastos.length;
+            
+            // Agregar alerta de presupuesto
+            let alertaHTML = '';
+            if (presupuesto > 0) {
+                let colorAlerta = '#27ae60'; // verde
+                let textoAlerta = '✅ Bajo control';
+                if (porcentajeUsado >= 100) {
+                    colorAlerta = '#c85450'; // rojo
+                    textoAlerta = '🔴 ¡Presupuesto excedido!';
+                } else if (porcentajeUsado >= 80) {
+                    colorAlerta = '#f39c12'; // naranja
+                    textoAlerta = '🟡 Alerta: 80% gastado';
+                }
+                
+                alertaHTML = `
+                    <div style="background: ${colorAlerta}20; border-left: 4px solid ${colorAlerta}; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-weight: 600; color: ${colorAlerta};">${textoAlerta}</div>
+                            <div style="font-size: 13px; color: #666;">${Math.round(porcentajeUsado)}% del presupuesto</div>
+                        </div>
+                        <div style="background: white; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                            <div style="background: ${colorAlerta}; height: 100%; width: ${Math.min(porcentajeUsado, 100)}%;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: #666; display: flex; justify-content: space-between;">
+                            <span>$${Math.round(totalGastado).toLocaleString('es-CL')} / $${Math.round(presupuesto).toLocaleString('es-CL')}</span>
+                            <span style="color: ${disponible > 0 ? '#27ae60' : '#c85450'};">Disponible: $${Math.round(disponible).toLocaleString('es-CL')}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Comparación con mes anterior
+            const diferencia = calcularDiferenciaConMesAnterior();
+            let comparacionHTML = '';
+            if (diferencia.tipo !== 'nuevo') {
+                let iconoComparacion = '📈';
+                let colorComparacion = '#c85450';
+                let textoComparacion = 'Mayor gasto';
+                if (diferencia.tipo === 'disminucion') {
+                    iconoComparacion = '📉';
+                    colorComparacion = '#27ae60';
+                    textoComparacion = 'Menor gasto';
+                } else if (diferencia.tipo === 'igual') {
+                    iconoComparacion = '➡️';
+                    colorComparacion = '#f39c12';
+                    textoComparacion = 'Igual gasto';
+                }
+                
+                comparacionHTML = `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Comparación con mes anterior</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 11px; color: #999;">Mes anterior: $${Math.round(diferencia.mesAnterior).toLocaleString('es-CL')}</div>
+                                <div style="font-size: 11px; color: #999;">Este mes: $${Math.round(diferencia.mesActual).toLocaleString('es-CL')}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 14px; color: ${colorComparacion}; font-weight: 600;">${iconoComparacion} ${diferencia.porcentaje}%</div>
+                                <div style="font-size: 12px; color: ${colorComparacion};">${textoComparacion}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Inyectar en el HTML - buscar dónde está la sección de gastos
+            let dashboardAlertasDiv = document.getElementById('dashboard-alertas');
+            if (!dashboardAlertasDiv) {
+                dashboardAlertasDiv = document.createElement('div');
+                dashboardAlertasDiv.id = 'dashboard-alertas';
+                const dashboardSection = document.querySelector('#dashboard .section:first-of-type');
+                if (dashboardSection) {
+                    dashboardSection.insertBefore(dashboardAlertasDiv, dashboardSection.firstChild);
+                }
+            }
+            dashboardAlertasDiv.innerHTML = alertaHTML + comparacionHTML;
+            
+            // Agrupar gastos por descripción para cuotas
+            const gastosAgrupados = {};
+            const gastosUnicos = [];
+
+            mesGastos.forEach(g => {
+                if (g.cuota) {
+                    // Para cuotas, agrupar por descripción
+                    if (!gastosAgrupados[g.desc]) {
+                        gastosAgrupados[g.desc] = {
+                            id: g.id,  // ✅ AGREGADO: guardar el ID
+                            desc: g.desc,
+                            amount: g.amount,
+                            category: g.category,
+                            cuotaTotal: g.cuotaTotal,
+                            responsables: new Set(),
+                            cuota: true,
+                            date: g.date
+                        };
+                    }
+                    gastosAgrupados[g.desc].responsables.add(g.responsable);
+                } else {
+                    // Gastos normales no se agrupan
+                    gastosUnicos.push(g);
+                }
+            });
+
+            // Convertir agrupados a array
+            const gastosAgrupadsArray = Object.values(gastosAgrupados).map(g => ({
+                ...g,
+                responsables: Array.from(g.responsables).join(' + ')
+            }));
+
+            // Combinar y ordenar
+            const todos = [...gastosAgrupadsArray, ...gastosUnicos]
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            console.log('Gastos a renderizar (todos):', todos);
+            todos.forEach((g, idx) => {
+                console.log(`todos[${idx}]: id=${g.id}, desc=${g.desc}, cuota=${g.cuota}`);
+            });
+
+            let html = '';
+
+            if (todos.length === 0) {
+                html = '<div class="empty">Sin gastos este mes</div>';
+            } else {
+                todos.forEach(g => {
+                    const d = new Date(g.date).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+                    
+                    if (g.cuota) {
+                        // Mostrar cuotas resumidas
+                        const meta = `${g.category} • ${d} • ${g.amount.toLocaleString('es-CL')} x ${g.cuotaTotal} cuotas • ${g.responsables}`;
+                        html += `
+                            <div class="item" data-id="${g.id}">
+                                <div class="item-content">
+                                    <div class="item-info">
+                                        <h3>${g.desc}</h3>
+                                        <div class="item-amount">$${Math.round(g.amount * g.cuotaTotal).toLocaleString('es-CL')}</div>
+                                    </div>
+                                    <div class="item-meta">${meta}</div>
+                                </div>
+                                <button class="item-delete">✕</button>
+                            </div>
+                        `;
+                    } else {
+                        // Gastos normales
+                        const meta = `${g.category} • ${d} • ${g.tipoPago} • ${g.responsable}`;
+                        html += `
+                            <div class="item" data-id="${g.id}">
+                                <div class="item-content">
+                                    <div class="item-info">
+                                        <h3>${g.desc}</h3>
+                                        <div class="item-amount">$${Math.round(g.amount).toLocaleString('es-CL')}</div>
+                                    </div>
+                                    <div class="item-meta">${meta}</div>
+                                </div>
+                                <button class="item-delete">✕</button>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            document.getElementById('dashboard-list').innerHTML = html;
+            dibujarDonut();
+            setupSwipeHandlers();
+            setupDeleteButtons();
+        }
+
+        function renderGastos() {
+            let mesGastos = obtenerGastosMes();
+            
+            // Actualizar label del mes
+            const mes = mesSeleccionado.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            document.getElementById('gastos-mes-label').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+
+            // OBTENER FILTROS
+            const buscar = document.getElementById('gastos-buscar').value.toLowerCase();
+            const filtroCategoria = document.getElementById('gastos-filtro-categoria').value;
+            const filtroTipo = document.getElementById('gastos-filtro-tipo').value;
+            const filtroResponsable = document.getElementById('gastos-filtro-responsable').value;
+
+            // APLICAR FILTROS
+            let gastosFiltrados = mesGastos.filter(g => {
+                const cumpleBusqueda = g.desc.toLowerCase().includes(buscar);
+                const cumpleCategoria = !filtroCategoria || g.category === filtroCategoria;
+                const cumpletipo = !filtroTipo || g.tipoPago === filtroTipo;
+                const cumpleResponsable = !filtroResponsable || g.responsable === filtroResponsable;
+
+                return cumpleBusqueda && cumpleCategoria && cumpletipo && cumpleResponsable;
+            });
+
+            let html = '';
+
+            // ACTUALIZAR HEADER CON RESULTADO DE FILTRO
+            const totalFiltrado = gastosFiltrados.reduce((s, g) => s + g.amount, 0);
+            const totalOriginal = mesGastos.reduce((s, g) => s + g.amount, 0);
+            const resultadoText = gastosFiltrados.length === mesGastos.length 
+                ? `Historial del mes (${mesGastos.length})`
+                : `${gastosFiltrados.length} resultado${gastosFiltrados.length !== 1 ? 's' : ''} - $${Math.round(totalFiltrado).toLocaleString('es-CL')}`;
+            document.getElementById('gastos-header-resultados').textContent = resultadoText;
+
+            if (gastosFiltrados.length === 0) {
+                html = '<div class="empty">No se encontraron gastos con esos filtros</div>';
+            } else {
+                gastosFiltrados.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(g => {
+                    const d = new Date(g.date).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+                    const cuota = g.cuota ? ` - Cuota ${g.cuotaNum}/${g.cuotaTotal}` : '';
+                    const meta = `${g.category} • ${d}${cuota} • ${g.tipoPago} • ${g.responsable}`;
+                    html += `
+                        <div class="item" data-id="${g.id}">
+                            <div class="item-content">
+                                <div class="item-info">
+                                    <h3>${g.desc}</h3>
+                                    <div class="item-meta">${meta}</div>
+                                </div>
+                                <div class="item-amount">$${Math.round(g.amount).toLocaleString('es-CL')}</div>
+                            </div>
+                            <div class="item-delete">✕</div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('gastos-list').innerHTML = html;
+            setupSwipeHandlers();
+            setupDeleteButtons();
+        }
+
+        function limpiarFiltrosGastos() {
+            document.getElementById('gastos-buscar').value = '';
+            document.getElementById('gastos-filtro-categoria').value = '';
+            document.getElementById('gastos-filtro-tipo').value = '';
+            document.getElementById('gastos-filtro-responsable').value = '';
+            renderGastos();
+        }
+
+        // CREAR ITEM SWIPEABLE
+        function crearItemSwipeable(gasto, monto) {
+            const d = new Date(gasto.date).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+            const cuota = gasto.cuota ? ` - Cuota ${gasto.cuotaNum}/${gasto.cuotaTotal}` : '';
+            const meta = `${gasto.category} • ${d}${cuota} • ${gasto.tipoPago} • ${gasto.responsable}`;
+            
+            return `
+                <div class="item" data-id="${gasto.id}">
+                    <div class="item-content">
+                        <div class="item-info">
+                            <h3>${gasto.desc}</h3>
+                            <div class="item-meta">${meta}</div>
+                        </div>
+                        <div class="item-amount">$${Math.round(monto).toLocaleString('es-CL')}</div>
+                    </div>
+                    <button class="item-delete">✕</button>
+                </div>
+            `;
+        }
+
+        // MODAL DE CONFIRMACIÓN PERSONALIZADO
+        function mostrarConfirmacion(mensaje, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            const msgEl = document.getElementById('confirm-message');
+            const confirmBtn = document.getElementById('confirm-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            
+            msgEl.textContent = mensaje;
+            modal.style.display = 'flex';
+            
+            // Remover listeners antiguos
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+            
+            // Nuevos listeners
+            confirmBtn.onclick = () => {
+                modal.style.display = 'none';
+                onConfirm();
+            };
+            
+            cancelBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+
+        // ELIMINAR UN GASTO
+        function eliminarGasto(id) {
+            console.log('Eliminando ID:', id);
+            console.log('Gastos antes:', gastos.length, gastos);
+            
+            const gasto = gastos.find(g => g.id === id);
+            if (!gasto) {
+                console.log('Gasto no encontrado');
+                return;
+            }
+
+            const mensaje = `¿Eliminar "${gasto.desc}" - $${Math.round(gasto.amount).toLocaleString('es-CL')}?`;
+            mostrarConfirmacion(mensaje, () => {
+                // Eliminar TODAS las instancias del gasto (incluyendo cuotas)
+                const gastosAntesCount = gastos.length;
+                gastos = gastos.filter(g => g.id !== id);
+                const gastosAhora = gastos.length;
+                
+                console.log('✅ Eliminados', gastosAntesCount - gastosAhora, 'gastos');
+                console.log('Gastos después:', gastos.length, gastos);
+                
+                guardarLocal();
+                
+                // FORZAR RECALCULACIÓN DE TODO
+                renderDashboard();
+                renderGastos();
+                renderResumen();
+                renderCuotas();
+                renderWishlist();
+                renderDeudas();
+                renderTransferencias();
+                
+                console.log('✅ Todas las vistas actualizadas');
+            });
+        }
+
+        // Agregar event listeners a botones delete DESPUÉS de renderizar
+        function setupDeleteButtons() {
+            document.querySelectorAll('.item-delete').forEach(btn => {
+                // Remover el listener anterior si existe
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+            });
+            
+            // Ahora agregar nuevos listeners
+            document.querySelectorAll('.item-delete').forEach(btn => {
+                btn.addEventListener('click', handleDeleteClick);
+            });
+        }
+
+        function handleDeleteClick(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const item = e.target.closest('.item');
+            if (!item) {
+                console.log('No se encontró .item');
+                return;
+            }
+            const dataIdAttr = item.getAttribute('data-id');
+            console.log('data-id attribute:', dataIdAttr, 'Tipo:', typeof dataIdAttr);
+            const id = parseFloat(dataIdAttr);  // ✅ CAMBIÉ: parseFloat en lugar de parseInt
+            console.log('ID parseado:', id, 'Es NaN?', isNaN(id));
+            if (isNaN(id)) {
+                console.error('ID inválido, no se puede eliminar');
+                return;
+            }
+            eliminarGasto(id);
+        }
+
+        // MANEJAR SWIPE EN ITEMS (iPhone-style) - Solo móvil
+        function setupSwipeHandlers() {
+            // En desktop no hay swipe, el botón es siempre visible
+            if (window.innerWidth > 768) return;
+            
+            document.querySelectorAll('.item').forEach(item => {
+                const itemContent = item.querySelector('.item-content');
+                const itemDelete = item.querySelector('.item-delete');
+                
+                if (!itemContent || !itemDelete) return;
+
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let isSwiping = false;
+
+                item.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    isSwiping = true;
+                }, false);
+
+                item.addEventListener('touchmove', (e) => {
+                    if (!isSwiping) return;
+
+                    const touchX = e.touches[0].clientX;
+                    const touchY = e.touches[0].clientY;
+                    const diffX = touchStartX - touchX;
+                    const diffY = Math.abs(touchStartY - touchY);
+
+                    if (diffY > Math.abs(diffX)) {
+                        isSwiping = false;
+                        return;
+                    }
+
+                    if (diffX > 0) {
+                        e.preventDefault();
+                        const maxSwipe = 80;
+                        const swipe = Math.min(diffX, maxSwipe);
+                        itemContent.style.transform = `translateX(-${swipe}px)`;
+                    }
+                }, false);
+
+                item.addEventListener('touchend', (e) => {
+                    const currentTransform = itemContent.style.transform;
+                    const match = currentTransform.match(/translateX\(-?(\d+)px\)/);
+                    const currentSwipe = match ? parseInt(match[1]) : 0;
+
+                    if (currentSwipe > 40) {
+                        itemContent.classList.add('swiped');
+                        itemContent.style.transform = 'translateX(-80px)';
+                    } else {
+                        itemContent.classList.remove('swiped');
+                        itemContent.style.transform = 'translateX(0)';
+                    }
+
+                    isSwiping = false;
+                }, false);
+
+                itemContent.addEventListener('click', () => {
+                    if (itemContent.classList.contains('swiped')) {
+                        itemContent.classList.remove('swiped');
+                        itemContent.style.transform = 'translateX(0)';
+                    }
+                });
+            });
+        }
+
+        function renderCuotas() {
+            const mesGastos = obtenerGastosMes();
+            const cuotas = mesGastos.filter(g => g.cuota).sort((a, b) => new Date(b.date) - new Date(a.date));
+            let html = '';
+
+            if (cuotas.length === 0) {
+                html = '<div class="empty">Sin cuotas este mes</div>';
+            } else {
+                cuotas.forEach(g => {
+                    const d = new Date(g.date).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+                    const meta = `Cuota ${g.cuotaNum}/${g.cuotaTotal} • ${d} • ${g.tipoPago} • ${g.responsable}`;
+                    html += `
+                        <div class="item">
+                            <div class="item-info">
+                                <h3>${g.desc}</h3>
+                                <div class="item-meta">${meta}</div>
+                            </div>
+                            <div class="item-amount">$${Math.round(g.amount).toLocaleString('es-CL')}</div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('cuotas-list').innerHTML = html;
+        }
+
+        // RESUMEN POR CATEGORÍA
+        const coloresCategoria = {
+            'Comida': '#2d8659',
+            'Transporte': '#4a9d6f',
+            'Entretenimiento': '#6cb381',
+            'Servicios': '#7a947a',
+            'Salud': '#8fa58f',
+            'Compras': '#1f5a3d',
+            'Otros': '#5cb896'
+        };
+
+        function agruparPorCategoria() {
+            const mesGastos = obtenerGastosMes();
+            const agrupado = {};
+
+            mesGastos.forEach(g => {
+                if (!agrupado[g.category]) {
+                    agrupado[g.category] = { total: 0, gastos: [], count: 0 };
+                }
+                agrupado[g.category].total += g.amount;
+                agrupado[g.category].gastos.push(g);
+                agrupado[g.category].count += 1;
+            });
+
+            return agrupado;
+        }
+
+        function dibujarGraficoCategoria() {
+            const svg = document.getElementById('categoryChart');
+            svg.innerHTML = '';
+
+            const categorias = agruparPorCategoria();
+            const total = Object.values(categorias).reduce((s, c) => s + c.total, 0);
+
+            if (total === 0) {
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', '60');
+                text.setAttribute('y', '70');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '40');
+                text.textContent = '📊';
+                svg.appendChild(text);
+                return;
+            }
+
+            const circumference = 2 * Math.PI * 40;
+            let offset = 0;
+
+            Object.entries(categorias).forEach(([cat, data]) => {
+                const porcentaje = (data.total / total) * 100;
+                const arcLength = (porcentaje / 100) * circumference;
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', '60');
+                circle.setAttribute('cy', '60');
+                circle.setAttribute('r', '40');
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', coloresCategoria[cat] || '#999');
+                circle.setAttribute('stroke-width', '8');
+                circle.setAttribute('stroke-dasharray', arcLength + ' ' + circumference);
+                circle.setAttribute('stroke-dashoffset', -offset);
+                circle.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(circle);
+
+                offset += arcLength;
+            });
+        }
+
+        function renderResumen() {
+            const mes = mesSeleccionado.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            document.getElementById('resumen-mes-label').textContent = mes.charAt(0).toUpperCase() + mes.slice(1);
+
+            const categorias = agruparPorCategoria();
+            const total = Object.values(categorias).reduce((s, c) => s + c.total, 0);
+
+            // Mostrar totales
+            let htmlTotales = '';
+            Object.entries(categorias)
+                .sort((a, b) => b[1].total - a[1].total)
+                .forEach(([cat, data]) => {
+                    const porcentaje = ((data.total / total) * 100).toFixed(1);
+                    htmlTotales += `
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0; font-size: 13px;">
+                            <div>
+                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: ${coloresCategoria[cat] || '#999'}; margin-right: 6px;"></span>
+                                ${cat}
+                            </div>
+                            <div style="font-weight: 600;">
+                                $${Math.round(data.total).toLocaleString('es-CL')} <span style="color: #999; font-weight: 400;">${porcentaje}%</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            document.getElementById('resumen-totales').innerHTML = htmlTotales;
+
+            // Mostrar detalle
+            let htmlDetalle = '';
+            if (Object.keys(categorias).length === 0) {
+                htmlDetalle = '<div class="empty">Sin gastos este mes</div>';
+            } else {
+                Object.entries(categorias)
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .forEach(([cat, data]) => {
+                        htmlDetalle += `
+                            <div style="margin-bottom: 16px;">
+                                <div style="font-weight: 600; color: ${coloresCategoria[cat] || '#999'}; margin-bottom: 8px;">
+                                    ${cat} - $${Math.round(data.total).toLocaleString('es-CL')} (${data.count} gasto${data.count > 1 ? 's' : ''})
+                                </div>
+                                <div style="background: #f5f5f5; border-radius: 6px; overflow: hidden;">
+                                    ${data.gastos.map(g => `
+                                        <div style="padding: 8px 12px; border-bottom: 1px solid #e0e0e0; font-size: 13px; display: flex; justify-content: space-between;">
+                                            <div>${g.desc}</div>
+                                            <div style="font-weight: 600;">$${Math.round(g.amount).toLocaleString('es-CL')}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+            }
+            document.getElementById('resumen-detalle').innerHTML = htmlDetalle;
+
+            // Dibujar gráfico
+            dibujarGraficoCategoria();
+        }
+
+        // DEUDAS - FUNCIONES
+        function abrirModalDeuda() {
+            document.getElementById('modalDeuda').classList.add('show');
+        }
+
+        function cerrarModalDeuda() {
+            document.getElementById('modalDeuda').classList.remove('show');
+            limpiarFormDeuda();
+        }
+
+        function limpiarFormDeuda() {
+            document.getElementById('deuda-desc').value = '';
+            document.getElementById('deuda-monto').value = '';
+            document.getElementById('deuda-cuotas').value = '3';
+            document.getElementById('deuda-deudor').value = '';
+        }
+
+        function guardarDeuda() {
+            const desc = document.getElementById('deuda-desc').value.trim();
+            const monto = parseFloat(document.getElementById('deuda-monto').value) || 0;
+            const cuotas = parseInt(document.getElementById('deuda-cuotas').value) || 1;
+            const deudor = document.getElementById('deuda-deudor').value.trim();
+
+            if (!desc || monto <= 0 || !deudor) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            const deuda = {
+                id: Date.now() + Math.random(),
+                desc,
+                monto,
+                cuotas,
+                deudor,
+                cuotasPagadas: [],
+                fechaCreacion: new Date().toLocaleDateString('es-CL')
+            };
+
+            // Crear array de cuotas pagadas
+            for (let i = 0; i < cuotas; i++) {
+                deuda.cuotasPagadas.push(false);
+            }
+
+            let deudas = JSON.parse(localStorage.getItem('deudas') || '[]');
+            deudas.push(deuda);
+            localStorage.setItem('deudas', JSON.stringify(deudas));
+
+            cerrarModalDeuda();
+            renderDeudas();
+        }
+
+        function renderDeudas() {
+            let deudas = JSON.parse(localStorage.getItem('deudas') || '[]');
+            let html = '';
+
+            if (deudas.length === 0) {
+                html = '<div class="empty">Sin deudas pendientes</div>';
+            } else {
+                deudas.forEach(deuda => {
+                    const montoPorCuota = (deuda.monto / deuda.cuotas).toLocaleString('es-CL');
+                    const cuotasPagadas = deuda.cuotasPagadas.filter(p => p).length;
+                    
+                    html += `
+                        <div class="deuda-card" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: white;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                <div>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600;">${deuda.desc}</h3>
+                                    <p style="margin: 0; font-size: 14px; color: #666;">Deudor: <strong>${deuda.deudor}</strong></p>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #999;">${deuda.fechaCreacion}</p>
+                                </div>
+                                <button onclick="eliminarDeuda('${deuda.id}')" style="background: #c85450; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 14px;">✕</button>
+                            </div>
+
+                            <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                                <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Total: <strong>$${deuda.monto.toLocaleString('es-CL')}</strong> | Por cuota: <strong>$${montoPorCuota}</strong></p>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    ${deuda.cuotasPagadas.map((pagada, idx) => `
+                                        <button onclick="toggleCuota('${deuda.id}', ${idx})" style="width: 32px; height: 32px; border-radius: 4px; border: 2px solid ${pagada ? '#27ae60' : '#ddd'}; background: ${pagada ? '#27ae60' : 'white'}; color: ${pagada ? 'white' : '#666'}; cursor: pointer; font-weight: 600; font-size: 12px;">${idx + 1}</button>
+                                    `).join('')}
+                                </div>
+                                <p style="margin: 8px 0 0 0; font-size: 13px; color: #666;">Pagadas: ${cuotasPagadas}/${deuda.cuotas}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('deudas-list').innerHTML = html;
+        }
+
+        function toggleCuota(deudaId, cuotaIdx) {
+            let deudas = JSON.parse(localStorage.getItem('deudas') || '[]');
+            const deuda = deudas.find(d => d.id == deudaId);
+            
+            if (deuda) {
+                deuda.cuotasPagadas[cuotaIdx] = !deuda.cuotasPagadas[cuotaIdx];
+                localStorage.setItem('deudas', JSON.stringify(deudas));
+                renderDeudas();
+            }
+        }
+
+        function eliminarDeuda(deudaId) {
+            if (confirm('¿Eliminar esta deuda?')) {
+                let deudas = JSON.parse(localStorage.getItem('deudas') || '[]');
+                deudas = deudas.filter(d => d.id != deudaId);
+                localStorage.setItem('deudas', JSON.stringify(deudas));
+                renderDeudas();
+            }
+        }
+
+        // TRANSFERENCIAS - FUNCIONES
+        function abrirModalTransferencia() {
+            document.getElementById('modalTransferencia').classList.add('show');
+        }
+
+        function cerrarModalTransferencia() {
+            document.getElementById('modalTransferencia').classList.remove('show');
+            limpiarFormTransferencia();
+        }
+
+        function limpiarFormTransferencia() {
+            document.getElementById('transferencia-de').value = '';
+            document.getElementById('transferencia-monto').value = '';
+            document.getElementById('transferencia-concepto').value = '';
+        }
+
+        function guardarTransferencia() {
+            const de = document.getElementById('transferencia-de').value.trim();
+            const monto = parseFloat(document.getElementById('transferencia-monto').value) || 0;
+            const concepto = document.getElementById('transferencia-concepto').value.trim();
+
+            if (!de || monto <= 0) {
+                alert('Por favor completa los campos');
+                return;
+            }
+
+            const transferencia = {
+                id: Date.now() + Math.random(),
+                de,
+                monto,
+                concepto,
+                recibida: true,
+                fecha: new Date().toLocaleDateString('es-CL'),
+                hora: new Date().toLocaleTimeString('es-CL')
+            };
+
+            let transferencias = JSON.parse(localStorage.getItem('transferencias') || '[]');
+            transferencias.push(transferencia);
+            localStorage.setItem('transferencias', JSON.stringify(transferencias));
+
+            cerrarModalTransferencia();
+            renderTransferencias();
+        }
+
+        function renderTransferencias() {
+            let transferencias = JSON.parse(localStorage.getItem('transferencias') || '[]');
+            let html = '';
+            let totalRecibido = 0;
+
+            if (transferencias.length === 0) {
+                html = '<div class="empty">Sin transferencias registradas</div>';
+            } else {
+                transferencias.forEach(t => {
+                    totalRecibido += t.monto;
+                    html += `
+                        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: white;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                <div>
+                                    <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600;">De: <strong>${t.de}</strong></h3>
+                                    <p style="margin: 0; font-size: 14px; color: #666;">Monto: <strong style="color: #27ae60;">$${t.monto.toLocaleString('es-CL')}</strong></p>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #999;">${t.concepto || 'Sin concepto'} • ${t.fecha}</p>
+                                </div>
+                                <button onclick="eliminarTransferencia('${t.id}')" style="background: #c85450; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 14px;">✕</button>
+                            </div>
+                            <div style="background: #f0f8f5; padding: 8px 12px; border-radius: 6px; text-align: center; font-size: 14px; color: #27ae60; font-weight: 600;">✅ Recibida</div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('transferencias-list').innerHTML = html;
+
+            // Mostrar total
+            if (transferencias.length > 0) {
+                const totalDiv = document.createElement('div');
+                totalDiv.style.cssText = 'background: #27ae60; color: white; padding: 16px; border-radius: 8px; text-align: center; font-weight: 600; font-size: 16px; margin-top: 16px;';
+                totalDiv.innerHTML = `Total Recibido: $${totalRecibido.toLocaleString('es-CL')}`;
+                document.getElementById('transferencias-list').appendChild(totalDiv);
+            }
+        }
+
+        function eliminarTransferencia(transferenciasId) {
+            if (confirm('¿Eliminar esta transferencia?')) {
+                let transferencias = JSON.parse(localStorage.getItem('transferencias') || '[]');
+                transferencias = transferencias.filter(t => t.id != transferenciasId);
+                localStorage.setItem('transferencias', JSON.stringify(transferencias));
+                renderTransferencias();
+            }
+        }
+
+        // INICIAR
+        init();
+    </script>
+</body>
+</html>
