@@ -609,6 +609,31 @@
             </div>
         </div>
 
+        <!-- ANÁLISIS DE PERÍODOS -->
+        <div id="periodos" class="view">
+            <div class="header">
+                <h1>Análisis de Períodos</h1>
+            </div>
+
+            <div class="section">
+                <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div class="form-group">
+                        <label>Fecha de Inicio</label>
+                        <input type="date" id="periodo-inicio" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha de Fin</label>
+                        <input type="date" id="periodo-fin" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+
+                    <button onclick="analizarPeriodo()" style="width: 100%; background: #2d8659; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">🔍 Analizar</button>
+                </div>
+
+                <div id="periodo-resultado"></div>
+            </div>
+        </div>
+
         <!-- WISHLIST -->
         <div id="wishlist" class="view">
             <div class="header">
@@ -630,6 +655,7 @@
     <!-- NAVEGACIÓN INFERIOR -->
     <div class="nav">
         <button class="nav-btn active" onclick="irA('dashboard')">📊</button>
+        <button class="nav-btn" onclick="irA('periodos')">📋</button>
         <button class="nav-btn" onclick="irA('resumen')">📈</button>
         <button class="nav-btn" onclick="irA('gastos')">📝</button>
         <button class="nav-btn" onclick="irA('cuotas')">📅</button>
@@ -2224,6 +2250,82 @@
                 localStorage.setItem('deudas', JSON.stringify(deudas));
                 renderDeudas();
             }
+        }
+
+        // ANÁLISIS DE PERÍODOS
+        function analizarPeriodo() {
+            const fechaInicio = document.getElementById('periodo-inicio').value;
+            const fechaFin = document.getElementById('periodo-fin').value;
+
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor completa ambas fechas');
+                return;
+            }
+
+            const inicio = new Date(fechaInicio);
+            const fin = new Date(fechaFin);
+
+            if (inicio > fin) {
+                alert('La fecha de inicio debe ser antes que la fecha de fin');
+                return;
+            }
+
+            let gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            let gastosEnPeriodo = gastos.filter(g => {
+                const fechaGasto = new Date(g.date);
+                return fechaGasto >= inicio && fechaGasto <= fin;
+            });
+
+            const totalGastado = gastosEnPeriodo.reduce((sum, g) => sum + g.amount, 0);
+            const presupuesto = obtenerPresupuesto();
+            const porcentajeUsado = presupuesto > 0 ? (totalGastado / presupuesto) * 100 : 0;
+            const disponible = Math.max(0, presupuesto - totalGastado);
+
+            let html = `
+                <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px;">Período: ${fechaInicio} al ${fechaFin}</h3>
+                    
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                        <p style="margin: 4px 0; font-size: 14px;">
+                            <strong>Total Gastado:</strong> $${totalGastado.toLocaleString('es-CL')}
+                        </p>
+                        <p style="margin: 4px 0; font-size: 14px;">
+                            <strong>Presupuesto:</strong> $${presupuesto.toLocaleString('es-CL')}
+                        </p>
+                        <p style="margin: 4px 0; font-size: 14px;">
+                            <strong>Disponible:</strong> $${disponible.toLocaleString('es-CL')}
+                        </p>
+                        <p style="margin: 4px 0; font-size: 14px;">
+                            <strong>Usado:</strong> ${Math.round(porcentajeUsado)}%
+                        </p>
+                    </div>
+
+                    <div style="background: #2d8659; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: 600; margin-bottom: 12px;">
+                        ${gastosEnPeriodo.length} transacciones en este período
+                    </div>
+
+                    <h4 style="margin: 12px 0 8px 0; font-size: 14px; font-weight: 600;">Gastos en el período:</h4>
+            `;
+
+            if (gastosEnPeriodo.length === 0) {
+                html += '<p style="color: #999; text-align: center;">Sin gastos en este período</p>';
+            } else {
+                gastosEnPeriodo.forEach(g => {
+                    const d = new Date(g.date).toLocaleDateString('es-CL');
+                    html += `
+                        <div style="padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <p style="margin: 0; font-weight: 600; font-size: 14px;">${g.desc}</p>
+                                <p style="margin: 2px 0 0 0; font-size: 12px; color: #666;">${g.category} • ${d}</p>
+                            </div>
+                            <p style="margin: 0; font-weight: 600; color: #2d8659;">$${g.amount.toLocaleString('es-CL')}</p>
+                        </div>
+                    `;
+                });
+            }
+
+            html += '</div>';
+            document.getElementById('periodo-resultado').innerHTML = html;
         }
 
         // TRANSFERENCIAS - FUNCIONES
