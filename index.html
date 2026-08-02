@@ -1951,18 +1951,32 @@
 
         function confirmarEliminarGasto() {
             if (!gastoActualId) {
+                console.error('❌ Error: no hay gasto seleccionado');
                 alert('Error: no hay gasto seleccionado');
                 return;
             }
 
             const gasto = gastos.find(g => g.id === gastoActualId);
             if (!gasto) {
-                alert('Gasto no encontrado');
+                console.error('❌ Error: gasto no encontrado');
+                alert('Error: gasto no encontrado');
                 return;
             }
 
+            console.log('🗑️ Eliminando gasto:', gastoActualId, gasto.desc);
+            
             cerrarModalAccion();
-            eliminarGasto(gastoActualId);
+            
+            // Eliminación directa sin confirmación adicional
+            const gastosAntesCount = gastos.length;
+            gastos = gastos.filter(g => g.id !== gastoActualId);
+            const gastosAhora = gastos.length;
+            
+            console.log('✅ Eliminados', gastosAntesCount - gastosAhora, 'gastos');
+            
+            guardarLocal();
+            actualizar();
+            gastoActualId = null;
         }
 
         // ELIMINAR UN GASTO
