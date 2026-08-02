@@ -810,8 +810,8 @@
             </div>
 
             <div class="form-group">
-                <label>Fecha</label>
-                <input type="date" id="date">
+                <label>📅 Fecha (Obligatoria)</label>
+                <input type="date" id="date" required>
             </div>
 
             <div class="form-group">
@@ -857,6 +857,21 @@
             <div class="button-group">
                 <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ACCIÓN GASTO (Modificar/Eliminar) -->
+    <div id="modalAccion" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 350px;">
+            <div class="modal-header">¿Qué quieres hacer?</div>
+            <p id="modalAccionDesc" style="margin: 12px 16px; color: #666; text-align: center; font-weight: 500; font-size: 14px;"></p>
+            <div style="display: flex; gap: 8px; padding: 0 16px 16px 16px;">
+                <button class="btn btn-primary" onclick="modificarGastoActual()" style="flex: 1; background: #2d8659;">✏️ Modificar</button>
+                <button class="btn" onclick="confirmarEliminarGasto()" style="flex: 1; background: #c85450; color: white; border: none;">🗑️ Eliminar</button>
+            </div>
+            <div style="padding: 0 16px 16px 16px;">
+                <button class="btn btn-secondary" onclick="cerrarModalAccion()" style="width: 100%;">Cancelar</button>
             </div>
         </div>
     </div>
@@ -1345,11 +1360,26 @@
 
         // MODAL
         function abrirModal() {
+            setDate();
             document.getElementById('modal').classList.add('show');
         }
 
         function cerrarModal() {
             document.getElementById('modal').classList.remove('show');
+            // Limpiar formulario
+            document.getElementById('desc').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('date').value = '';
+            document.getElementById('isCuota').checked = false;
+            document.getElementById('numCuotas').value = '1';
+            document.getElementById('cuotasGroup').classList.add('hidden');
+            document.getElementById('tipoPago-transferencia').checked = false;
+            document.getElementById('tipoPago-credito').checked = false;
+            document.getElementById('responsable-javi').checked = false;
+            document.getElementById('responsable-naty').checked = false;
+            document.getElementById('responsable-otros').checked = false;
+            gastoActualId = null;
         }
 
         function toggleCuotas() {
@@ -1387,6 +1417,11 @@
                 return;
             }
 
+            if (!date) {
+                alert('Selecciona una fecha');
+                return;
+            }
+
             if (tiposSeleccionados.length === 0) {
                 alert('Selecciona al menos un tipo de pago');
                 return;
@@ -1395,6 +1430,11 @@
             if (responsablesSeleccionados.length === 0) {
                 alert('Selecciona al menos un responsable');
                 return;
+            }
+
+            // Si estamos editando un gasto existente, eliminar el anterior primero
+            if (gastoActualId) {
+                gastos = gastos.filter(g => g.id !== gastoActualId);
             }
 
             // Calcular divisiones
@@ -1855,6 +1895,76 @@
             };
         }
 
+        // MODAL DE ACCIÓN (Modificar/Eliminar Gasto)
+        let gastoActualId = null;
+
+        function abrirModalAccion(id) {
+            const gasto = gastos.find(g => g.id === id);
+            if (!gasto) {
+                console.log('Gasto no encontrado');
+                return;
+            }
+            
+            gastoActualId = id;
+            const desc = `"${gasto.desc}" - $${Math.round(gasto.amount).toLocaleString('es-CL')}`;
+            document.getElementById('modalAccionDesc').textContent = desc;
+            document.getElementById('modalAccion').style.display = 'flex';
+        }
+
+        function cerrarModalAccion() {
+            document.getElementById('modalAccion').style.display = 'none';
+            gastoActualId = null;
+        }
+
+        function modificarGastoActual() {
+            if (!gastoActualId) {
+                alert('Error: no hay gasto seleccionado');
+                return;
+            }
+
+            const gasto = gastos.find(g => g.id === gastoActualId);
+            if (!gasto) {
+                alert('Gasto no encontrado');
+                return;
+            }
+
+            // Llenar el formulario con los datos del gasto
+            document.getElementById('desc').value = gasto.desc;
+            document.getElementById('amount').value = gasto.amount;
+            document.getElementById('category').value = gasto.category;
+            document.getElementById('date').value = gasto.date;
+            document.getElementById('tipoPago-transferencia').checked = gasto.tipoPago.includes('Transferencia');
+            document.getElementById('tipoPago-credito').checked = gasto.tipoPago.includes('Crédito');
+            document.getElementById('responsable-javi').checked = gasto.responsable.includes('Javi');
+            document.getElementById('responsable-naty').checked = gasto.responsable.includes('Naty');
+            document.getElementById('responsable-otros').checked = gasto.responsable.includes('Otros');
+            document.getElementById('isCuota').checked = gasto.isCuota || false;
+            if (gasto.isCuota) {
+                document.getElementById('numCuotas').value = gasto.numCuotas || 1;
+                document.getElementById('cuotasGroup').classList.remove('hidden');
+            }
+
+            // Cerrar modal de acción y abrir modal de edición
+            cerrarModalAccion();
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function confirmarEliminarGasto() {
+            if (!gastoActualId) {
+                alert('Error: no hay gasto seleccionado');
+                return;
+            }
+
+            const gasto = gastos.find(g => g.id === gastoActualId);
+            if (!gasto) {
+                alert('Gasto no encontrado');
+                return;
+            }
+
+            cerrarModalAccion();
+            eliminarGasto(gastoActualId);
+        }
+
         // ELIMINAR UN GASTO
         function eliminarGasto(id) {
             console.log('Eliminando ID:', id);
@@ -1915,13 +2025,13 @@
             }
             const dataIdAttr = item.getAttribute('data-id');
             console.log('data-id attribute:', dataIdAttr, 'Tipo:', typeof dataIdAttr);
-            const id = parseFloat(dataIdAttr);  // ✅ CAMBIÉ: parseFloat en lugar de parseInt
+            const id = parseFloat(dataIdAttr);
             console.log('ID parseado:', id, 'Es NaN?', isNaN(id));
             if (isNaN(id)) {
-                console.error('ID inválido, no se puede eliminar');
+                console.error('ID inválido, no se puede procesar');
                 return;
             }
-            eliminarGasto(id);
+            abrirModalAccion(id);
         }
 
         // MANEJAR SWIPE EN ITEMS (iPhone-style) - Solo móvil
